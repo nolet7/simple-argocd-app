@@ -15,6 +15,6 @@ spec:
     spec:
       containers:
       - name: simple-app
-        image: ghcr.io/YOUR_GITHUB_USERNAME/simple-argocd-app:latest
+        image: ghcr.io/nolet7/simple-argocd-app:latest
         ports:
         - containerPort: 3000
