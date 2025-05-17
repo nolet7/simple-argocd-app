@@ -3,7 +3,7 @@ name: CI Build & Push to GHCR and Docker Hub
 on:
   push:
     branches:
-      - main
+      - feature_dev
     tags:
       - 'v*'  # Optional: for versioned releases like v1.0.0
 
