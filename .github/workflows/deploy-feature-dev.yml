@@ -53,5 +53,5 @@ jobs:
           git config user.email "actions@github.com"
           git add k8s/dev/deployment.yaml
           git commit -m "CI: update image tag to ${TAG}" || echo "No changes to commit"
-          git remote set-url origin https://x-access-token:${REPO_TOKEN}@github.com/nolet7/simple-argocd-app.git
+          git remote set-url origin https://x-access-token:${REPO_TOKEN}@github.com/${{ github.repository }}
           git push origin feature_dev
