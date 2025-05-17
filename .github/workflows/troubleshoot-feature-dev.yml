@@ -1,0 +1,64 @@
+name: Deploy Feature Branch to Dev Namespace (Troubleshoot)
+
+on:
+  push:
+    branches:
+      - troubleshoot
+    tags:
+      - 'v*'
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set image tag from short SHA
+        run: echo "TAG=$(echo ${GITHUB_SHA} | cut -c1-7)" >> $GITHUB_ENV
+
+      - name: Log in to GitHub Container Registry (GHCR)
+        run: echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ secrets.GHCR_USERNAME }} --password-stdin
+
+      - name: Log in to Docker Hub
+        run: echo "${{ secrets.DOCKER_TOKEN }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
+
+      - name: Build Docker image
+        run: |
+          docker build -t ghcr.io/${{ secrets.GHCR_USERNAME }}/simple-argocd-app:${TAG} \
+                       -t ghcr.io/${{ secrets.GHCR_USERNAME }}/simple-argocd-app:latest \
+                       -t ${{ secrets.DOCKER_USERNAME }}/simple-argocd-app:${TAG} \
+                       -t ${{ secrets.DOCKER_USERNAME }}/simple-argocd-app:latest .
+
+      - name: Push to GHCR
+        run: |
+          docker push ghcr.io/${{ secrets.GHCR_USERNAME }}/simple-argocd-app:${TAG}
+          docker push ghcr.io/${{ secrets.GHCR_USERNAME }}/simple-argocd-app:latest
+
+      - name: Push to Docker Hub
+        run: |
+          docker push ${{ secrets.DOCKER_USERNAME }}/simple-argocd-app:${TAG}
+          docker push ${{ secrets.DOCKER_USERNAME }}/simple-argocd-app:latest
+
+      - name: Patch image tag in dev deployment.yaml
+        run: |
+          sed -i "s|simple-argocd-app:latest|simple-argocd-app:${TAG}|g" k8s/dev/deployment.yaml
+
+      - name: Commit and push updated manifest using PAT
+        env:
+          REPO_TOKEN: ${{ secrets.REPO_TOKEN }}
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add k8s/dev/deployment.yaml
+          git commit -m "CI: update image tag to ${TAG}" || echo "No changes to commit"
+
+          # Unset default credentials to avoid falling back to GITHUB_TOKEN
+          git config --unset-all http.https://github.com/.extraheader || true
+
+          # Set remote to use REPO_TOKEN
+          git remote set-url origin https://x-access-token:${REPO_TOKEN}@github.com/${{ github.repository }}
+
+          # Push the updated manifest
+          git push origin troubleshoot
