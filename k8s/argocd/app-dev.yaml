@@ -2,13 +2,17 @@ apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   name: simple-app-dev
-  namespace: devops
+  namespace: argocd  # Argo CD itself must be installed in this namespace
+  labels:
+    app.kubernetes.io/managed-by: argocd
 spec:
   project: default
   source:
-    repoURL: https://github.com/YOUR_GITHUB_USERNAME/simple-argocd-app
+    repoURL: https://github.com/nolet7/simple-argocd-app
     targetRevision: HEAD
     path: k8s/dev
+    directory:
+      recurse: true
   destination:
     server: https://kubernetes.default.svc
     namespace: dev
@@ -16,3 +20,6 @@ spec:
     automated:
       prune: true
       selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+

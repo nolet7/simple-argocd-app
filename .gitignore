@@ -1,0 +1,53 @@
+# Node.js
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+.env
+.env.local
+
+# Docker
+*.tar
+*.img
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Kubernetes config
+.kube/
+*.kubeconfig
+admin.conf
+
+# GitHub Actions secrets
+.github/workflows/*token*.yaml
+
+# Secrets
+.env
+.env.*
+secrets.yaml
+
+# Kube configs
+.kube/
+admin.conf
+
+# SSH keys
+*.pem
+*.key
+
+# Logs
+logs/
+*.log
+logs/
+
+# App build artifacts (optional)
+dist/
+build/
+
+# Backup/swap files
+*.swp
+*.swo
+*.bak
+*~
