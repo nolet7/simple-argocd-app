@@ -1,0 +1,56 @@
+name: CI/CD Workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      repo_token:
+        description: 'Personal Access Token with repo push access'
+        required: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set Image Tag
+        run: echo "TAG=$(echo ${GITHUB_SHA} | cut -c1-7)" >> $GITHUB_ENV
+
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ secrets.GHCR_USERNAME }} --password-stdin
+
+      - name: Log in to Docker Hub
+        run: echo "${{ secrets.DOCKER_TOKEN }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
+
+      - name: Build and Tag Docker Image
+        run: |
+          docker build -t ghcr.io/${{ secrets.GHCR_USERNAME }}/simple-argocd-app:${TAG} \
+                       -t ghcr.io/${{ secrets.GHCR_USERNAME }}/simple-argocd-app:latest \
+                       -t ${{ secrets.DOCKER_USERNAME }}/simple-argocd-app:${TAG} \
+                       -t ${{ secrets.DOCKER_USERNAME }}/simple-argocd-app:latest .
+
+      - name: Push to GHCR
+        run: |
+          docker push ghcr.io/${{ secrets.GHCR_USERNAME }}/simple-argocd-app:${TAG}
+          docker push ghcr.io/${{ secrets.GHCR_USERNAME }}/simple-argocd-app:latest
+
+      - name: Push to Docker Hub
+        run: |
+          docker push ${{ secrets.DOCKER_USERNAME }}/simple-argocd-app:${TAG}
+          docker push ${{ secrets.DOCKER_USERNAME }}/simple-argocd-app:latest
+
+      - name: Patch image tag in dev and prod manifests
+        run: |
+          sed -i "s|noletengine/simple-argocd-app:.*|noletengine/simple-argocd-app:${TAG}|" k8s/dev/deployment.yaml
+          sed -i "s|noletengine/simple-argocd-app:.*|noletengine/simple-argocd-app:${TAG}|" k8s/production/deployment.yaml
+
+      - name: Commit and push updated manifests
+        env:
+          REPO_TOKEN: ${{ github.event.inputs.repo_token }}
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add k8s/dev/deployment.yaml k8s/production/deployment.yaml
+          git commit -m "CI: update image tag to ${TAG}" || echo "No changes to commit"
