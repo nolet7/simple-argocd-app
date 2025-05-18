@@ -14,3 +14,4 @@ trigger-3
 # Trigger build
 # Trigger build with token
 # Trigger CI build
+# Triggering ArgoCD build
