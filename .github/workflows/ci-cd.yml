@@ -1,30 +1,31 @@
-name: CI Build & Push to Registries
+name: CI/CD Workflow
 
 on:
   push:
     branches:
       - main
-    tags:
-      - 'v*'
+  pull_request:
+    branches:
+      - main
 
 jobs:
-  docker:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout Code
         uses: actions/checkout@v3
 
-      - name: Set image tag from short SHA
+      - name: Set Image Tag
         run: echo "TAG=$(echo ${GITHUB_SHA} | cut -c1-7)" >> $GITHUB_ENV
 
-      - name: Log in to GitHub Container Registry (GHCR)
+      - name: Log in to GHCR
         run: echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ secrets.GHCR_USERNAME }} --password-stdin
 
       - name: Log in to Docker Hub
         run: echo "${{ secrets.DOCKER_TOKEN }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
 
-      - name: Build Docker image
+      - name: Build and Tag Docker Image
         run: |
           docker build -t ghcr.io/${{ secrets.GHCR_USERNAME }}/simple-argocd-app:${TAG} \
                        -t ghcr.io/${{ secrets.GHCR_USERNAME }}/simple-argocd-app:latest \
@@ -34,4 +35,33 @@ jobs:
       - name: Push to GHCR
         run: |
           docker push ghcr.io/${{ secrets.GHCR_USERNAME }}/simple-argocd-app:${TAG}
-          docker push ghcr.io ​:contentReference[oaicite:0]{index=0}​
+          docker push ghcr.io/${{ secrets.GHCR_USERNAME }}/simple-argocd-app:latest
+
+      - name: Push to Docker Hub
+        run: |
+          docker push ${{ secrets.DOCKER_USERNAME }}/simple-argocd-app:${TAG}
+          docker push ${{ secrets.DOCKER_USERNAME }}/simple-argocd-app:latest
+
+      - name: Patch image in manifests
+        run: |
+          sed -i "s|noletengine/simple-argocd-app:.*|noletengine/simple-argocd-app:${TAG}|" k8s/dev/deployment.yaml
+          sed -i "s|noletengine/simple-argocd-app:.*|noletengine/simple-argocd-app:${TAG}|" k8s/production/deployment.yaml
+
+      - name: Commit updated Kubernetes manifests
+        env:
+          REPO_TOKEN: ${{ secrets.REPO_TOKEN }}
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add k8s/dev/deployment.yaml k8s/production/deployment.yaml
+          git commit -m "CI: update image tag to ${TAG}" || echo "No changes to commit"
+          git remote set-url origin https://x-access-token:${REPO_TOKEN}@github.com/${{ github.repository }}
+          git push origin main
+
+      - name: Sync ArgoCD Applications
+        env:
+          ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
+        run: |
+          argocd login 192.168.0.171:32443 --username admin --password ${{ secrets.ARGOCD_PASSWORD }} --insecure
+          argocd app sync simple-app-dev
+          argocd app sync simple-app-prod
