@@ -7,7 +7,7 @@ on:
 
 jobs:
   build-and-deploy:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
 
     steps:
       - name: Checkout Code
@@ -16,35 +16,25 @@ jobs:
       - name: Set Image Tag
         run: echo "TAG=$(echo ${GITHUB_SHA} | cut -c1-7)" >> $GITHUB_ENV
 
-      - name: Log in to GHCR
-        run: echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ secrets.GHCR_USERNAME }} --password-stdin
-
       - name: Log in to Docker Hub
         run: echo "${{ secrets.DOCKER_TOKEN }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
 
       - name: Build and Tag Docker Image
         run: |
-          docker build -t ghcr.io/${{ secrets.GHCR_USERNAME }}/simple-argocd-app:${TAG} \
-                       -t ghcr.io/${{ secrets.GHCR_USERNAME }}/simple-argocd-app:latest \
-                       -t ${{ secrets.DOCKER_USERNAME }}/simple-argocd-app:${TAG} \
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/simple-argocd-app:${TAG} \
                        -t ${{ secrets.DOCKER_USERNAME }}/simple-argocd-app:latest .
 
-      - name: Push to GHCR
-        run: |
-          docker push ghcr.io/${{ secrets.GHCR_USERNAME }}/simple-argocd-app:${TAG}
-          docker push ghcr.io/${{ secrets.GHCR_USERNAME }}/simple-argocd-app:latest
-
-      - name: Push to Docker Hub
+      - name: Push Docker Image
         run: |
           docker push ${{ secrets.DOCKER_USERNAME }}/simple-argocd-app:${TAG}
           docker push ${{ secrets.DOCKER_USERNAME }}/simple-argocd-app:latest
 
-      - name: Patch image tag in dev and prod manifests
+      - name: Patch image in Kubernetes manifests
         run: |
           sed -i "s|simple-argocd-app:.*|simple-argocd-app:${TAG}|" k8s/dev/deployment.yaml
           sed -i "s|simple-argocd-app:.*|simple-argocd-app:${TAG}|" k8s/production/deployment.yaml
 
-      - name: Commit and push updated manifests
+      - name: Commit updated manifests
         env:
           REPO_TOKEN: ${{ secrets.REPO_TOKEN }}
         run: |
@@ -52,15 +42,14 @@ jobs:
           git config user.email "actions@github.com"
           git add k8s/dev/deployment.yaml k8s/production/deployment.yaml
           git commit -m "CI: update image tag to ${TAG}" || echo "No changes to commit"
-          git config --unset-all http.https://github.com/.extraheader || true
           git remote set-url origin https://x-access-token:${REPO_TOKEN}@github.com/${{ github.repository }}
           git push origin main
 
-      - name: Install ArgoCD CLI
+      - name: Install Argo CD CLI
         run: |
           curl -sSL -o argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
           chmod +x argocd
-          sudo mv argocd /usr/local/bin/argocd
+          sudo mv argocd /usr/local/bin/
 
       - name: Sync ArgoCD Applications
         run: |
