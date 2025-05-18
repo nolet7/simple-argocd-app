@@ -15,6 +15,6 @@ spec:
     spec:
       containers:
       - name: simple-app
-        image: noletengine/simple-argocd-app:24ef5f6
+        image: noletengine/simple-argocd-app:cd20b09
         ports:
         - containerPort: 3000
