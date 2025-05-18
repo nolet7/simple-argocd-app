@@ -53,8 +53,10 @@ jobs:
           sudo mv argocd /usr/local/bin/
 
       - name: Sync ArgoCD Applications
+        env:
+          ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
         run: |
-          argocd login 192.168.0.171:32443 --username admin --password ${{ secrets.ARGOCD_AUTH_TOKEN }} --insecure
+          argocd login 192.168.0.171:32443 --username admin --password "$ARGOCD_AUTH_TOKEN" --insecure
           argocd app sync simple-app-dev
           argocd app sync simple-app-prod
 
