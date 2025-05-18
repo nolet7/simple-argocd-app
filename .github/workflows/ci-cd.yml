@@ -56,7 +56,7 @@ jobs:
         env:
           ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
         run: |
-          argocd login 192.168.0.171:32443 --insecure --auth-token $ARGOCD_AUTH_TOKEN
-          argocd app sync simple-app-dev
-          argocd app sync simple-app-prod
+          argocd app sync simple-app-dev --auth-token $ARGOCD_AUTH_TOKEN --server 192.168.0.171:32443 --insecure
+          argocd app sync simple-app-prod --auth-token $ARGOCD_AUTH_TOKEN --server 192.168.0.171:32443 --insecure
+          
 
