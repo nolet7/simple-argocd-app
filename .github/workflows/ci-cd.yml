@@ -34,7 +34,7 @@ jobs:
           sed -i "s|simple-argocd-app:.*|simple-argocd-app:${TAG}|" k8s/dev/deployment.yaml
           sed -i "s|simple-argocd-app:.*|simple-argocd-app:${TAG}|" k8s/production/deployment.yaml
 
-      - name: Commit updated manifests
+      - name: Commit updated manifests with skip CI
         env:
           REPO_TOKEN: ${{ secrets.REPO_TOKEN }}
         run: |
